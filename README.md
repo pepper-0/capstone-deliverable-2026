@@ -1,4 +1,4 @@
-# Capstone Deliverable 2026
+# Capstone Tangible 2026
 what did i get myself into...
 
 ## [Read more here](https://sites.google.com/student.andoverma.us/capstone-jana-leung/home) 
