@@ -14,6 +14,11 @@ class NucleosomeLevel {
     this.sliderMax = 220;
     this.spacingSliderEl = null;
     this._onResizeSpacing = null;
+    this.placedMethyls = [];
+    this.placedAcetyls = [];
+    this.placedRNAPolymerases = [];
+    this.methylCondenseCount = 0;
+    this.acetylRelaxCount = 0;
     this.init();
   }
 
@@ -24,21 +29,11 @@ class NucleosomeLevel {
     this.createSlider();
     this.createRNAPolymerase();
     this.createMethylGroup();
+    this.createAcetylGroup();
+    this.createResetButton();
   }
 
-  createMethylGroup() {
-    const toolbar = document.querySelector('.tool-column');
-    if (!toolbar) return;
-    if (toolbar.querySelector('.methyl-group-wrapper')) return;
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'methyl-group-wrapper';
-    wrapper.style.position = 'relative';
-    wrapper.style.display = 'flex';
-    wrapper.style.flexDirection = 'column';
-    wrapper.style.alignItems = 'center';
-    wrapper.style.marginBottom = '2rem';
-
+  _createMethylDragNode() {
     const dragObj = document.createElement('div');
     dragObj.className = 'methyl-group-drag';
     dragObj.style.position = 'relative';
@@ -46,7 +41,6 @@ class NucleosomeLevel {
     dragObj.style.flexDirection = 'column';
     dragObj.style.alignItems = 'center';
     dragObj.style.cursor = 'grab';
-
     const label = document.createElement('div');
     label.textContent = 'Methyl Group';
     label.style.fontWeight = 'bold';
@@ -58,7 +52,6 @@ class NucleosomeLevel {
     label.style.transform = 'translateX(-50%)';
     label.style.pointerEvents = 'none';
     dragObj.appendChild(label);
-
     const methyl = document.createElement('div');
     methyl.className = 'methyl-group-shape';
     methyl.style.width = '34px';
@@ -69,97 +62,520 @@ class NucleosomeLevel {
     methyl.style.boxShadow = '0 2px 8px rgba(217, 122, 142, 0.22)';
     methyl.style.transition = 'box-shadow 0.2s, border-color 0.2s, transform 0.2s';
     dragObj.appendChild(methyl);
-    wrapper.appendChild(dragObj);
-    toolbar.appendChild(wrapper);
+    return { dragObj, methyl };
+  }
 
-    let isDragging = false;
-    let startX = 0;
-    let startY = 0;
-    let origRect = null;
-    let offsetX = 0;
-    let offsetY = 0;
-    let animFrame;
-    let startToolbarRect = null;
+  _createAcetylDragNode() {
+    const dragObj = document.createElement('div');
+    dragObj.className = 'acetyl-group-drag';
+    dragObj.style.position = 'relative';
+    dragObj.style.display = 'flex';
+    dragObj.style.flexDirection = 'column';
+    dragObj.style.alignItems = 'center';
+    dragObj.style.cursor = 'grab';
+    const label = document.createElement('div');
+    label.textContent = 'Ac';
+    label.style.fontWeight = 'bold';
+    label.style.fontSize = '0.95rem';
+    label.style.textAlign = 'center';
+    label.style.position = 'absolute';
+    label.style.top = '-1.3em';
+    label.style.left = '50%';
+    label.style.transform = 'translateX(-50%)';
+    label.style.pointerEvents = 'none';
+    dragObj.appendChild(label);
+    const acetyl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    acetyl.setAttribute('width', '36');
+    acetyl.setAttribute('height', '36');
+    acetyl.setAttribute('viewBox', '0 0 36 36');
+    acetyl.classList.add('acetyl-group-shape');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M4 28 Q10 18 18 28 Q26 38 32 18');
+    path.setAttribute('stroke', '#22c55e');
+    path.setAttribute('stroke-width', '4');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke-linecap', 'round');
+    acetyl.appendChild(path);
+    dragObj.appendChild(acetyl);
+    return { dragObj, acetyl };
+  }
 
-    dragObj.addEventListener('mouseenter', () => {
-      methyl.style.boxShadow = '0 0 14px rgba(250, 204, 21, 0.5), 0 0 24px rgba(254, 240, 138, 0.42), 0 2px 10px rgba(217, 122, 142, 0.26)';
-      methyl.style.borderColor = '#df738a';
-      methyl.style.transform = 'scale(1.03)';
-    });
-    dragObj.addEventListener('mouseleave', () => {
-      if (!isDragging) {
-        methyl.style.boxShadow = '0 2px 8px rgba(217, 122, 142, 0.22)';
-        methyl.style.borderColor = '#d97a8e';
-        methyl.style.transform = 'scale(1)';
-      }
-    });
+  /**
+   * Acetyl toolbar: infinite drags—each mousedown spawns a new group for the level.
+   */
+  createAcetylGroup() {
+    const toolbar = document.querySelector('.tool-column');
+    if (!toolbar) return;
+    if (toolbar.querySelector('.acetyl-group-wrapper')) return;
 
-    dragObj.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      origRect = dragObj.getBoundingClientRect();
-      startToolbarRect = wrapper.getBoundingClientRect();
-      dragObj.style.zIndex = 1000;
-      dragObj.style.cursor = 'grabbing';
+    const outer = document.createElement('div');
+    outer.className = 'acetyl-group-wrapper';
+    outer.style.position = 'relative';
+    outer.style.display = 'flex';
+    outer.style.flexDirection = 'column';
+    outer.style.alignItems = 'center';
+    outer.style.marginBottom = '2rem';
+    outer.style.width = '100%';
+
+    const source = document.createElement('div');
+    source.className = 'acetyl-group-source';
+    const { dragObj: preview, acetyl: prevAc } = this._createAcetylDragNode();
+    source.appendChild(preview);
+    outer.appendChild(source);
+    toolbar.appendChild(outer);
+
+    const bindPreviewHover = () => {
+      preview.addEventListener('mouseenter', () => {
+        prevAc.style.filter = 'drop-shadow(0 0 10px #22c55e88)';
+      });
+      preview.addEventListener('mouseleave', () => {
+        prevAc.style.filter = '';
+      });
+    };
+    bindPreviewHover();
+
+    const _this = this;
+    source.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const { dragObj, acetyl } = _this._createAcetylDragNode();
+      const srcRect = source.getBoundingClientRect();
+      document.body.appendChild(dragObj);
       dragObj.style.position = 'fixed';
-      dragObj.style.left = origRect.left + 'px';
-      dragObj.style.top = origRect.top + 'px';
+      dragObj.style.zIndex = '2000';
+      dragObj.style.left = srcRect.left + 'px';
+      dragObj.style.top = srcRect.top + 'px';
+      dragObj.style.cursor = 'grabbing';
       document.body.style.userSelect = 'none';
+      const origRect = dragObj.getBoundingClientRect();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      let isDragging = true;
+
+      const onMove = (ev) => {
+        if (!isDragging) return;
+        const level = document.getElementById('level-container');
+        if (!level) return;
+        const levelRect = level.getBoundingClientRect();
+        const offsetX = ev.clientX - startX;
+        const offsetY = ev.clientY - startY;
+        let newLeft = origRect.left + offsetX;
+        let newTop = origRect.top + offsetY;
+        if (
+          newLeft + origRect.width > levelRect.left &&
+          newLeft < levelRect.right &&
+          newTop + origRect.height > levelRect.top &&
+          newTop < levelRect.bottom
+        ) {
+          newLeft = Math.max(levelRect.left, Math.min(newLeft, levelRect.right - origRect.width));
+          newTop = Math.max(levelRect.top, Math.min(newTop, levelRect.bottom - origRect.height));
+        }
+        dragObj.style.left = newLeft + 'px';
+        dragObj.style.top = newTop + 'px';
+      };
+
+      const onUp = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.style.userSelect = '';
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        const acetylRect = dragObj.getBoundingClientRect();
+        let droppedOnTarget = false;
+        let targetElement = null;
+        let targetIndex = -1;
+        for (let i = 0; i < _this.nucleosomes.length; i++) {
+          const nucleosomeRect = _this.nucleosomes[i].getBoundingClientRect();
+          if (_this.checkOverlap(acetylRect, nucleosomeRect)) {
+            droppedOnTarget = true;
+            targetElement = _this.nucleosomes[i];
+            targetIndex = i;
+            break;
+          }
+        }
+        if (droppedOnTarget) {
+          _this._placeAcetylOnNucleosome(dragObj, targetElement, targetIndex);
+          _this.placedAcetyls.push({ dragObj, targetIndex });
+          _this._animateRelaxation();
+          _this._showNotification('Acetylation: Chromatin relaxed!', true);
+        } else {
+          _this._returnAcetylDragToSourceAndRemove(dragObj, acetyl, outer);
+          _this._showNotification('Acetyl group must be placed on a nucleosome.', false);
+        }
+      };
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
     });
+  }
 
-    function onMove(e) {
-      if (!isDragging) return;
-      offsetX = e.clientX - startX;
-      offsetY = e.clientY - startY;
-      const level = document.getElementById('level-container');
-      const levelRect = level.getBoundingClientRect();
-      let newLeft = origRect.left + offsetX;
-      let newTop = origRect.top + offsetY;
-      if (
-        newLeft + origRect.width > levelRect.left &&
-        newLeft < levelRect.right &&
-        newTop + origRect.height > levelRect.top &&
-        newTop < levelRect.bottom
-      ) {
-        newLeft = Math.max(levelRect.left, Math.min(newLeft, levelRect.right - origRect.width));
-        newTop = Math.max(levelRect.top, Math.min(newTop, levelRect.bottom - origRect.height));
-      }
-      dragObj.style.left = newLeft + 'px';
-      dragObj.style.top = newTop + 'px';
+  /**
+   * Place acetyl group on nucleosome edge.
+   */
+  _placeAcetylOnNucleosome(dragObj, nucleosome, nucIdx) {
+    dragObj.style.position = 'absolute';
+    // Find closest edge point (rightmost for simplicity)
+    const nucRect = nucleosome.getBoundingClientRect();
+    const containerRect = this.container.getBoundingClientRect();
+    const centerX = nucRect.left + nucRect.width / 2 - containerRect.left;
+    const centerY = nucRect.top + nucRect.height / 2 - containerRect.top;
+    const radius = nucRect.width / 2;
+    // Place at right edge
+    const edgeX = centerX + radius * 0.95;
+    const edgeY = centerY;
+    dragObj.style.left = `${edgeX}px`;
+    dragObj.style.top = `${edgeY}px`;
+    dragObj.style.transform = 'translate(-50%, -50%)';
+    this.container.appendChild(dragObj);
+    dragObj.dataset.nucleosomeIndex = nucIdx;
+    dragObj.dataset.attached = 'true';
+  }
+
+  _returnAcetylDragToSourceAndRemove(dragObj, acetyl, sourceOuter) {
+    const outer = sourceOuter || document.querySelector('.acetyl-group-wrapper');
+    if (!outer) {
+      dragObj.remove();
+      return;
     }
-
-    function onUp() {
-      if (!isDragging) return;
-      isDragging = false;
-      dragObj.style.cursor = 'grab';
-      document.body.style.userSelect = '';
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      const fromLeft = parseFloat(dragObj.style.left);
-      const fromTop = parseFloat(dragObj.style.top);
-      const targetLeft = startToolbarRect.left;
-      const targetTop = startToolbarRect.top;
-      let progress = 1;
-      function animateBack() {
-        progress -= 0.08;
-        if (progress <= 0) {
-          dragObj.style.position = 'relative';
-          dragObj.style.left = '';
-          dragObj.style.top = '';
-          dragObj.style.zIndex = '';
-          methyl.style.boxShadow = '0 2px 8px rgba(217, 122, 142, 0.22)';
-          methyl.style.borderColor = '#d97a8e';
-          methyl.style.transform = 'scale(1)';
-          return;
-        }
-        dragObj.style.left = (fromLeft * progress + targetLeft * (1 - progress)) + 'px';
-        dragObj.style.top = (fromTop * progress + targetTop * (1 - progress)) + 'px';
-        animFrame = requestAnimationFrame(animateBack);
+    dragObj.style.position = 'fixed';
+    const currentRect = dragObj.getBoundingClientRect();
+    const targetRect = outer.getBoundingClientRect();
+    const fromLeft = currentRect.left;
+    const fromTop = currentRect.top;
+    const targetLeft = targetRect.left;
+    const targetTop = targetRect.top;
+    let progress = 1;
+    const animateBack = () => {
+      progress -= 0.08;
+      if (progress <= 0) {
+        if (acetyl) acetyl.style.filter = '';
+        dragObj.remove();
+        return;
       }
-      animateBack();
+      dragObj.style.left = (fromLeft * progress + targetLeft * (1 - progress)) + 'px';
+      dragObj.style.top = (fromTop * progress + targetTop * (1 - progress)) + 'px';
+      requestAnimationFrame(animateBack);
+    }
+    animateBack();
+  }
+
+  /**
+   * Methyl toolbar: each drag spawns a new instance; the toolbar preview always remains.
+   */
+  createMethylGroup() {
+    const toolbar = document.querySelector('.tool-column');
+    if (!toolbar) return;
+    if (toolbar.querySelector('.methyl-group-wrapper')) return;
+
+    const outer = document.createElement('div');
+    outer.className = 'methyl-group-wrapper';
+    outer.style.position = 'relative';
+    outer.style.display = 'flex';
+    outer.style.flexDirection = 'column';
+    outer.style.alignItems = 'center';
+    outer.style.marginBottom = '2rem';
+    outer.style.width = '100%';
+
+    const source = document.createElement('div');
+    source.className = 'methyl-group-source';
+    const { dragObj: preview, methyl: prevM } = this._createMethylDragNode();
+    source.appendChild(preview);
+    outer.appendChild(source);
+    toolbar.appendChild(outer);
+
+    preview.addEventListener('mouseenter', () => {
+      prevM.style.boxShadow = '0 0 14px rgba(250, 204, 21, 0.5), 0 0 24px rgba(254, 240, 138, 0.42), 0 2px 10px rgba(217, 122, 142, 0.26)';
+      prevM.style.borderColor = '#df738a';
+      prevM.style.transform = 'scale(1.03)';
+    });
+    preview.addEventListener('mouseleave', () => {
+      prevM.style.boxShadow = '0 2px 8px rgba(217, 122, 142, 0.22)';
+      prevM.style.borderColor = '#d97a8e';
+      prevM.style.transform = 'scale(1)';
+    });
+
+    const _this = this;
+    source.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const { dragObj, methyl } = _this._createMethylDragNode();
+      const srcRect = source.getBoundingClientRect();
+      document.body.appendChild(dragObj);
+      dragObj.style.position = 'fixed';
+      dragObj.style.zIndex = '2000';
+      dragObj.style.left = srcRect.left + 'px';
+      dragObj.style.top = srcRect.top + 'px';
+      dragObj.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
+      const origRect = dragObj.getBoundingClientRect();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      let isDragging = true;
+
+      const onMove = (ev) => {
+        if (!isDragging) return;
+        const level = document.getElementById('level-container');
+        if (!level) return;
+        const levelRect = level.getBoundingClientRect();
+        const offsetX = ev.clientX - startX;
+        const offsetY = ev.clientY - startY;
+        let newLeft = origRect.left + offsetX;
+        let newTop = origRect.top + offsetY;
+        if (
+          newLeft + origRect.width > levelRect.left &&
+          newLeft < levelRect.right &&
+          newTop + origRect.height > levelRect.top &&
+          newTop < levelRect.bottom
+        ) {
+          newLeft = Math.max(levelRect.left, Math.min(newLeft, levelRect.right - origRect.width));
+          newTop = Math.max(levelRect.top, Math.min(newTop, levelRect.bottom - origRect.height));
+        }
+        dragObj.style.left = newLeft + 'px';
+        dragObj.style.top = newTop + 'px';
+      };
+
+      const onUp = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.style.userSelect = '';
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        const methylRect = dragObj.getBoundingClientRect();
+        let droppedOnTarget = false;
+        let targetElement = null;
+        let targetIndex = -1;
+        let onDNA = false;
+        for (let i = 0; i < _this.dnaLinks.length; i++) {
+          const dnaLinkRect = _this.dnaLinks[i].getBoundingClientRect();
+          if (_this.checkOverlap(methylRect, dnaLinkRect)) {
+            droppedOnTarget = true;
+            targetElement = _this.dnaLinks[i];
+            targetIndex = i;
+            onDNA = true;
+            break;
+          }
+        }
+        if (!droppedOnTarget) {
+          for (let i = 0; i < _this.nucleosomes.length; i++) {
+            const nucleosomeRect = _this.nucleosomes[i].getBoundingClientRect();
+            if (_this.checkOverlap(methylRect, nucleosomeRect)) {
+              droppedOnTarget = true;
+              targetElement = _this.nucleosomes[i];
+              targetIndex = i;
+              break;
+            }
+          }
+        }
+        if (droppedOnTarget) {
+          if (onDNA) {
+            _this._placeMethylOnDNALink(dragObj, targetElement, targetIndex);
+            _this.placedMethyls.push({ dragObj, type: 'dna', targetIndex });
+          } else {
+            _this._placeMethylOnNucleosome(dragObj, targetElement, targetIndex);
+            _this.placedMethyls.push({ dragObj, type: 'nucleosome', targetIndex });
+          }
+          _this._animateCondensation();
+          _this._showNotification('Methylation: Chromatin condensed!', true);
+        } else {
+          _this._returnMethylDragToSourceAndRemove(dragObj, methyl, outer);
+          _this._showNotification('Methyl group must be placed on a DNA link or nucleosome.', false);
+        }
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+  }
+
+  /** Place methyl group on DNA link (centered). */
+  _placeMethylOnDNALink(dragObj, dnaLink, linkIdx) {
+    dragObj.style.position = 'absolute';
+    // Get DNA link geometry
+    const geom = this._calculateDNALinkGeometry(linkIdx);
+    dragObj.style.left = `${geom.midX}px`;
+    dragObj.style.top = `${geom.midY - geom.dnaLinkThickness / 2 - 18}px`;
+    dragObj.style.transform = 'translate(-50%, -50%)';
+    this.container.appendChild(dragObj);
+    dragObj.dataset.dnaLinkIndex = linkIdx;
+    dragObj.dataset.attached = 'true';
+  }
+
+  /** Place methyl group on nucleosome edge. */
+  _placeMethylOnNucleosome(dragObj, nucleosome, nucIdx) {
+    dragObj.style.position = 'absolute';
+    // Find closest edge point (rightmost for simplicity)
+    const nucRect = nucleosome.getBoundingClientRect();
+    const containerRect = this.container.getBoundingClientRect();
+    const centerX = nucRect.left + nucRect.width / 2 - containerRect.left;
+    const centerY = nucRect.top + nucRect.height / 2 - containerRect.top;
+    const radius = nucRect.width / 2;
+    // Place at right edge
+    const edgeX = centerX + radius * 0.95;
+    const edgeY = centerY;
+    dragObj.style.left = `${edgeX}px`;
+    dragObj.style.top = `${edgeY}px`;
+    dragObj.style.transform = 'translate(-50%, -50%)';
+    this.container.appendChild(dragObj);
+    dragObj.dataset.nucleosomeIndex = nucIdx;
+    dragObj.dataset.attached = 'true';
+  }
+
+  _returnMethylDragToSourceAndRemove(dragObj, methyl, sourceOuter) {
+    const outer = sourceOuter || document.querySelector('.methyl-group-wrapper');
+    if (!outer) {
+      dragObj.remove();
+      return;
+    }
+    dragObj.style.position = 'fixed';
+    const currentRect = dragObj.getBoundingClientRect();
+    const targetRect = outer.getBoundingClientRect();
+    const fromLeft = currentRect.left;
+    const fromTop = currentRect.top;
+    const targetLeft = targetRect.left;
+    const targetTop = targetRect.top;
+    let progress = 1;
+    const animateBack = () => {
+      progress -= 0.08;
+      if (progress <= 0) {
+        if (methyl) {
+          methyl.style.boxShadow = '';
+          methyl.style.borderColor = '';
+        }
+        dragObj.remove();
+        return;
+      }
+      dragObj.style.left = (fromLeft * progress + targetLeft * (1 - progress)) + 'px';
+      dragObj.style.top = (fromTop * progress + targetTop * (1 - progress)) + 'px';
+      requestAnimationFrame(animateBack);
+    }
+    animateBack();
+  }
+  /** Animate condensation (slider up, DNA tightens) */
+  _animateCondensation() {
+    // Each methyl group increases tightening
+    this.methylCondenseCount++;
+    // Move slider up by a fixed increment (max 10 per group)
+    const slider = this.spacingSliderEl;
+    if (slider) {
+      let newVal = Math.max(this.sliderMin, parseInt(slider.value) - 10);
+      slider.value = newVal;
+      this.spacing = newVal;
+      this.updateSpacing();
+    }
+    // Animate slider visually (move up)
+    const sliderWrapper = document.querySelector('.slider-wrapper');
+    if (sliderWrapper) {
+      sliderWrapper.classList.add('condense-anim');
+      setTimeout(() => sliderWrapper.classList.remove('condense-anim'), 400);
+    }
+  }
+
+  /** Animate relaxation (slider down, DNA loosens) */
+  _animateRelaxation() {
+    this.acetylRelaxCount++;
+    const slider = this.spacingSliderEl;
+    if (slider) {
+      let newVal = Math.min(this.sliderMax, parseInt(slider.value) + 10);
+      slider.value = newVal;
+      this.spacing = newVal;
+      this.updateSpacing();
+    }
+    const sliderWrapper = document.querySelector('.slider-wrapper');
+    if (sliderWrapper) {
+      sliderWrapper.classList.add('relax-anim');
+      setTimeout(() => sliderWrapper.classList.remove('relax-anim'), 400);
+    }
+  }
+  /**
+   * Reset all placed elements (methyl, acetyl, RNA polymerase) from the level.
+   */
+  createResetButton() {
+    const toolbar = document.querySelector('.tool-column');
+    if (!toolbar) return;
+    if (toolbar.querySelector('.reset-btn-wrapper')) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'reset-btn-wrapper';
+    const btn = document.createElement('button');
+    btn.textContent = 'Reset';
+    btn.className = 'reset-btn';
+    btn.style.background = '#f87171';
+    btn.style.color = '#fff';
+    btn.style.border = 'none';
+    btn.style.borderRadius = '8px';
+    btn.style.padding = '0.5em 1.2em';
+    btn.style.fontWeight = 'bold';
+    btn.style.fontSize = '1rem';
+    btn.style.cursor = 'pointer';
+    btn.style.boxShadow = '0 2px 8px rgba(248,113,113,0.13)';
+    btn.style.transition = 'background 0.2s';
+    btn.addEventListener('mouseenter', () => btn.style.background = '#dc2626');
+    btn.addEventListener('mouseleave', () => btn.style.background = '#f87171');
+    btn.onclick = () => this._resetPlacedElements();
+    wrapper.appendChild(btn);
+    toolbar.appendChild(wrapper);
+  }
+
+  _resetPlacedElements() {
+    // Remove all methyls
+    for (const m of this.placedMethyls) {
+      if (m.dragObj.parentNode) m.dragObj.parentNode.removeChild(m.dragObj);
+    }
+    this.placedMethyls = [];
+    // Remove all acetyls
+    for (const a of this.placedAcetyls) {
+      if (a.dragObj.parentNode) a.dragObj.parentNode.removeChild(a.dragObj);
+    }
+    this.placedAcetyls = [];
+    // Remove all RNA polymerases
+    const rnaPolymerases = this.container.querySelectorAll('.rna-polymerase-drag');
+    rnaPolymerases.forEach(el => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+    // Reset slider to default
+    if (this.spacingSliderEl) {
+      this.spacingSliderEl.value = this.spacing = 120;
+      this.updateSpacing();
+    }
+    this.methylCondenseCount = 0;
+    this.acetylRelaxCount = 0;
+    this._showNotification('Reset complete.', true);
+  }
+
+  _updateAttachedGroups() {
+    // Update methyls
+    for (const m of this.placedMethyls) {
+      if (m.type === 'dna') {
+        // Re-center on DNA link
+        const geom = this._calculateDNALinkGeometry(m.targetIndex);
+        m.dragObj.style.left = `${geom.midX}px`;
+        m.dragObj.style.top = `${geom.midY - geom.dnaLinkThickness / 2 - 18}px`;
+        m.dragObj.style.transform = 'translate(-50%, -50%)';
+      } else if (m.type === 'nucleosome') {
+        // Re-attach to nucleosome edge
+        const nuc = this.nucleosomes[m.targetIndex];
+        if (!nuc) continue;
+        const nucRect = nuc.getBoundingClientRect();
+        const containerRect = this.container.getBoundingClientRect();
+        const centerX = nucRect.left + nucRect.width / 2 - containerRect.left;
+        const centerY = nucRect.top + nucRect.height / 2 - containerRect.top;
+        const radius = nucRect.width / 2;
+        const edgeX = centerX + radius * 0.95;
+        const edgeY = centerY;
+        m.dragObj.style.left = `${edgeX}px`;
+        m.dragObj.style.top = `${edgeY}px`;
+        m.dragObj.style.transform = 'translate(-50%, -50%)';
+      }
+    }
+    // Update acetyls
+    for (const a of this.placedAcetyls) {
+      const nuc = this.nucleosomes[a.targetIndex];
+      if (!nuc) continue;
+      const nucRect = nuc.getBoundingClientRect();
+      const containerRect = this.container.getBoundingClientRect();
+      const centerX = nucRect.left + nucRect.width / 2 - containerRect.left;
+      const centerY = nucRect.top + nucRect.height / 2 - containerRect.top;
+      const radius = nucRect.width / 2;
+      const edgeX = centerX + radius * 0.95;
+      const edgeY = centerY;
+      a.dragObj.style.left = `${edgeX}px`;
+      a.dragObj.style.top = `${edgeY}px`;
+      a.dragObj.style.transform = 'translate(-50%, -50%)';
     }
   }
 
@@ -255,7 +671,7 @@ class NucleosomeLevel {
       window.addEventListener('mouseup', onUp);
     });
 
-    function onMove(e) {
+    const onMove = (e) => {
       if (!isDragging) return;
       offsetX = e.clientX - startX;
       offsetY = e.clientY - startY;
@@ -278,7 +694,7 @@ class NucleosomeLevel {
       dragObj.style.top = newTop + 'px';
     }
 
-    function onUp(e) {
+    const onUp = (e) => {
       if (!isDragging) return;
       isDragging = false;
       dragObj.style.cursor = 'grab';
@@ -484,7 +900,8 @@ class NucleosomeLevel {
     switchLabel.appendChild(snapSwitch);
     sliderWrapper.appendChild(switchLabel);
 
-    this.container.appendChild(sliderWrapper);
+    const levelControlsHost = document.querySelector('.level-bottom-controls') || this.container;
+    levelControlsHost.appendChild(sliderWrapper);
 
     slider.addEventListener('input', (e) => {
       this.spacing = parseInt(e.target.value);
@@ -732,6 +1149,7 @@ class NucleosomeLevel {
         wrapped.style.opacity = '0.8';
       }
     }
+    this._updateAttachedGroups();
   }
 
   makeDraggable(element, type) {

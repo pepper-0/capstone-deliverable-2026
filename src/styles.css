@@ -1,3 +1,56 @@
+.acetyl-group-drag {
+  cursor: grab;
+  user-select: none;
+  transition: box-shadow 0.18s, filter 0.18s;
+}
+.acetyl-group-drag:active {
+  cursor: grabbing;
+}
+.acetyl-group-shape {
+  width: 36px;
+  height: 36px;
+  display: block;
+}
+.reset-btn-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 0.75rem;
+}
+.reset-btn {
+  background: #f87171;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5em 1.2em;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(248,113,113,0.13);
+  transition: background 0.2s;
+}
+.reset-btn:hover {
+  background: #dc2626;
+}
+/* Slider animation for condensation/relaxation */
+.slider-wrapper.condense-anim {
+  animation: slider-condense 0.4s cubic-bezier(.7,1.7,.7,1) 1;
+}
+.slider-wrapper.relax-anim {
+  animation: slider-relax 0.4s cubic-bezier(.7,1.7,.7,1) 1;
+}
+@keyframes slider-condense {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08) translateY(-8px); }
+  100% { transform: scale(1) translateY(0); }
+}
+@keyframes slider-relax {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08) translateY(8px); }
+  100% { transform: scale(1) translateY(0); }
+}
 .dna-svg {
   cursor: pointer;
   z-index: 3;
@@ -71,6 +124,7 @@ main {
   margin: 2rem auto;
   max-width: 1100px;
   min-width: 800px;
+  overflow: hidden;
 }
 .tool-column {
   width: 120px;
@@ -79,6 +133,26 @@ main {
   overflow-y: auto;
   padding: 1rem 0.5rem;
   min-width: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+.level-workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.level-bottom-controls {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0.4rem 1rem 0.6rem 1rem;
+  background: #e2e8f0;
+  border-top: 1px solid #b6c6e2;
 }
 .info-bar {
   width: 100%;
@@ -97,7 +171,7 @@ main {
   justify-content: center;
   position: relative;
   min-width: 600px;
-  min-height: 400px;
+  min-height: 0;
 }
 
 /* Nucleosome Level Framework */
@@ -172,18 +246,28 @@ main {
   cursor: grabbing;
 }
 
-/* Slider */
+/* Slider (lives in .level-bottom-controls, not over the playfield) */
 .slider-wrapper {
-  position: absolute;
-  right: 24px;
-  bottom: 24px;
+  position: relative;
+  right: auto;
+  bottom: auto;
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   padding: 0.7rem 1.2rem;
-  z-index: 20;
+  z-index: 1;
   display: flex;
   align-items: center;
+}
+.methyl-group-source,
+.acetyl-group-source {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.methyl-group-source:active,
+.acetyl-group-source:active {
+  cursor: grabbing;
 }
 
 /* Notification Dialog */
