@@ -156,13 +156,110 @@ main {
 }
 .info-bar {
   width: 100%;
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
   min-height: 40px;
   background: #c7e0f7;
   border-radius: 8px 8px 0 0;
   margin-bottom: 0.5rem;
-  padding: 0.5rem 1rem;
+  padding: 0.65rem 1rem;
   font-size: 1.1rem;
   color: #1a2a3a;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  box-sizing: border-box;
+}
+.info-bar__text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.45;
+}
+.info-bar__text em {
+  font-style: italic;
+  color: #0f172a;
+}
+.info-bar__actions {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  align-items: center;
+}
+.info-bar__actions button {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45em 0.9em;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.35);
+  transition: background 0.15s, transform 0.1s;
+}
+.info-bar__actions button:hover:not(:disabled) {
+  background: #2563eb;
+}
+.info-bar__actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.info-bar__actions--hidden {
+  display: none !important;
+}
+/* Tutorial pulse rings: distinct from default hover gold (#facc15 / 250,204,21) */
+#tutorial-highlight-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2500;
+  overflow: visible;
+}
+.tutorial-glow-ring {
+  position: fixed;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 3px solid rgba(180, 120, 20, 0.95);
+  background: rgba(255, 237, 150, 0.12);
+  box-shadow:
+    0 0 0 3px rgba(202, 138, 4, 0.35),
+    0 0 18px 6px rgba(250, 204, 30, 0.28);
+  will-change: transform, opacity;
+  /* Position uses left/top = center − size/2; scale() then stays centered. */
+  transform-origin: 50% 50%;
+  animation: tutorial-pulse-in 1.9s ease-in-out infinite;
+}
+.tutorial-glow-ring.tutorial-glow-ring--whole-strand {
+  /* Slightly looser read on the big group highlight */
+  border-width: 4px;
+}
+.tutorial-glow-ring.tutorial-glow-ring--stopped {
+  animation: none;
+  transform: scale(1);
+  opacity: 0;
+  transition: opacity 0.35s ease, transform 0.15s ease;
+}
+@keyframes tutorial-pulse-in {
+  0% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  16% {
+    transform: scale(1.1);
+    opacity: 0.6;
+  }
+  50%,
+  100% {
+    transform: scale(1);
+    opacity: 0.92;
+  }
 }
 .level-container {
   flex: 1;

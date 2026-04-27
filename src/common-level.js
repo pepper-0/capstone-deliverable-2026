@@ -511,7 +511,11 @@ class NucleosomeLevel {
     toolbar.appendChild(wrapper);
   }
 
-  _resetPlacedElements() {
+  /**
+   * Reset level contents (placements, slider) to the initial state. Used by UI Reset and the tutorial.
+   * @param {{ silent?: boolean }} [opts] — if silent, do not show the "Reset complete" notification
+   */
+  _resetPlacedElements(opts = {}) {
     // Remove all methyls
     for (const m of this.placedMethyls) {
       if (m.dragObj.parentNode) m.dragObj.parentNode.removeChild(m.dragObj);
@@ -534,7 +538,14 @@ class NucleosomeLevel {
     }
     this.methylCondenseCount = 0;
     this.acetylRelaxCount = 0;
-    this._showNotification('Reset complete.', true);
+    if (!opts.silent) {
+      this._showNotification('Reset complete.', true);
+    }
+  }
+
+  /** Public reset (e.g. tutorial end) without notification. */
+  resetToInitialState() {
+    this._resetPlacedElements({ silent: true });
   }
 
   _updateAttachedGroups() {
