@@ -324,13 +324,27 @@
       if (this.tutorialComplete) {
         this.textEl.innerHTML = '';
         this.actionsEl.classList.add('info-bar__actions--hidden');
+        this._applySliderVisibility();
         return;
       }
       this.actionsEl.classList.remove('info-bar__actions--hidden');
       this.textEl.innerHTML = formatStepHtml(STEPS[this.stepIndex] || '');
       this.backBtn.disabled = this.stepIndex === 0;
+      this._applySliderVisibility();
       this._clearRings();
       requestAnimationFrame(() => this._startHighlights());
+    }
+
+    /**
+     * Slider + snap-back are only shown during the tutorial steps that
+     * introduce them (welcome through "RNA polymerase is only able to
+     * transcribe..."). After that and once the tutorial is complete, they
+     * are hidden so the player relies on the epigenetic mechanisms.
+     */
+    _applySliderVisibility() {
+      if (!this.level || typeof this.level.setSliderVisible !== 'function') return;
+      const shouldShow = !this.tutorialComplete && this.stepIndex <= 6;
+      this.level.setSliderVisible(shouldShow);
     }
 
     goBack() {

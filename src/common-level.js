@@ -19,6 +19,9 @@ class NucleosomeLevel {
     this.placedRNAPolymerases = [];
     this.methylCondenseCount = 0;
     this.acetylRelaxCount = 0;
+    // Slider + snap-back are hidden by default; only the tutorial enables
+    // them for the steps that explicitly teach the slider concept.
+    this.sliderVisible = options.showSlider === true;
     this.init();
   }
 
@@ -41,17 +44,6 @@ class NucleosomeLevel {
     dragObj.style.flexDirection = 'column';
     dragObj.style.alignItems = 'center';
     dragObj.style.cursor = 'grab';
-    const label = document.createElement('div');
-    label.textContent = 'Methyl Group';
-    label.style.fontWeight = 'bold';
-    label.style.fontSize = '0.95rem';
-    label.style.textAlign = 'center';
-    label.style.position = 'absolute';
-    label.style.top = '-1.3em';
-    label.style.left = '50%';
-    label.style.transform = 'translateX(-50%)';
-    label.style.pointerEvents = 'none';
-    dragObj.appendChild(label);
     const methyl = document.createElement('div');
     methyl.className = 'methyl-group-shape';
     methyl.style.width = '34px';
@@ -61,8 +53,36 @@ class NucleosomeLevel {
     methyl.style.border = '2px solid #d97a8e';
     methyl.style.boxShadow = '0 2px 8px rgba(217, 122, 142, 0.22)';
     methyl.style.transition = 'box-shadow 0.2s, border-color 0.2s, transform 0.2s';
+    methyl.style.position = 'relative';
     dragObj.appendChild(methyl);
+    // Label is overlaid on top of the circle (single line, small font) instead
+    // of sitting above it so the badge reads as one combined element.
+    const label = document.createElement('div');
+    label.textContent = 'Methyl';
+    this._styleToolLabel(label, '#7a1f31');
+    methyl.appendChild(label);
     return { dragObj, methyl };
+  }
+
+  /**
+   * Common label styling for the methyl / acetyl / RNA polymerase badges.
+   * Centers the text on its parent shape, keeps it on one line, and matches
+   * the small font size requested across all three tools.
+   */
+  _styleToolLabel(label, color) {
+    label.style.fontWeight = 'bold';
+    label.style.fontSize = '0.65rem';
+    label.style.lineHeight = '1';
+    label.style.whiteSpace = 'nowrap';
+    label.style.textAlign = 'center';
+    label.style.position = 'absolute';
+    label.style.top = '50%';
+    label.style.left = '50%';
+    label.style.transform = 'translate(-50%, -50%)';
+    label.style.pointerEvents = 'none';
+    label.style.color = color;
+    label.style.textShadow = '0 0 2px rgba(255,255,255,0.85)';
+    label.style.zIndex = '3';
   }
 
   _createAcetylDragNode() {
@@ -73,30 +93,71 @@ class NucleosomeLevel {
     dragObj.style.flexDirection = 'column';
     dragObj.style.alignItems = 'center';
     dragObj.style.cursor = 'grab';
+
+    const acetyl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    acetyl.setAttribute('width', '40');
+    acetyl.setAttribute('height', '40');
+    // Slight negative margin in the viewBox so the thicker stroke + outline
+    // fully fit without being clipped at the SVG edges.
+    acetyl.setAttribute('viewBox', '-2 -2 40 40');
+    acetyl.classList.add('acetyl-group-shape');
+    acetyl.style.overflow = 'visible';
+    acetyl.style.display = 'block';
+
+    // Unique gradient id per instance so multiple acetyls in the DOM keep
+    // their fills isolated.
+    NucleosomeLevel._acetylUid = (NucleosomeLevel._acetylUid || 0) + 1;
+    const gradId = `acetyl-grad-${NucleosomeLevel._acetylUid}`;
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    grad.setAttribute('id', gradId);
+    grad.setAttribute('x1', '0');
+    grad.setAttribute('y1', '0');
+    grad.setAttribute('x2', '36');
+    grad.setAttribute('y2', '36');
+    grad.setAttribute('gradientUnits', 'userSpaceOnUse');
+    const stops = [
+      { o: '0%', c: '#dcfce7' },
+      { o: '45%', c: '#86efac' },
+      { o: '100%', c: '#16a34a' },
+    ];
+    for (const s of stops) {
+      const st = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+      st.setAttribute('offset', s.o);
+      st.setAttribute('stop-color', s.c);
+      grad.appendChild(st);
+    }
+    defs.appendChild(grad);
+    acetyl.appendChild(defs);
+
+    const wavyD = 'M4 28 Q10 18 18 28 Q26 38 32 18';
+    // Darker outline path (laid down first, slightly thicker).
+    const outline = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    outline.setAttribute('d', wavyD);
+    outline.setAttribute('stroke', '#14532d');
+    outline.setAttribute('stroke-width', '9');
+    outline.setAttribute('fill', 'none');
+    outline.setAttribute('stroke-linecap', 'round');
+    outline.setAttribute('stroke-linejoin', 'round');
+    acetyl.appendChild(outline);
+    // Gradient-filled center path layered on top.
+    const fill = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    fill.setAttribute('d', wavyD);
+    fill.setAttribute('stroke', `url(#${gradId})`);
+    fill.setAttribute('stroke-width', '6');
+    fill.setAttribute('fill', 'none');
+    fill.setAttribute('stroke-linecap', 'round');
+    fill.setAttribute('stroke-linejoin', 'round');
+    acetyl.appendChild(fill);
+
+    dragObj.appendChild(acetyl);
+
+    // Label overlaid centered on the wavy shape, single line, small font.
     const label = document.createElement('div');
     label.textContent = 'Ac';
-    label.style.fontWeight = 'bold';
-    label.style.fontSize = '0.95rem';
-    label.style.textAlign = 'center';
-    label.style.position = 'absolute';
-    label.style.top = '-1.3em';
-    label.style.left = '50%';
-    label.style.transform = 'translateX(-50%)';
-    label.style.pointerEvents = 'none';
+    this._styleToolLabel(label, '#14532d');
     dragObj.appendChild(label);
-    const acetyl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    acetyl.setAttribute('width', '36');
-    acetyl.setAttribute('height', '36');
-    acetyl.setAttribute('viewBox', '0 0 36 36');
-    acetyl.classList.add('acetyl-group-shape');
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', 'M4 28 Q10 18 18 28 Q26 38 32 18');
-    path.setAttribute('stroke', '#22c55e');
-    path.setAttribute('stroke-width', '4');
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke-linecap', 'round');
-    acetyl.appendChild(path);
-    dragObj.appendChild(acetyl);
+
     return { dragObj, acetyl };
   }
 
@@ -180,6 +241,9 @@ class NucleosomeLevel {
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
         const acetylRect = dragObj.getBoundingClientRect();
+        const containerRect = _this.container.getBoundingClientRect();
+        const dropX = (acetylRect.left + acetylRect.width / 2) - containerRect.left;
+        const dropY = (acetylRect.top + acetylRect.height / 2) - containerRect.top;
         let droppedOnTarget = false;
         let targetElement = null;
         let targetIndex = -1;
@@ -193,7 +257,7 @@ class NucleosomeLevel {
           }
         }
         if (droppedOnTarget) {
-          _this._placeAcetylOnNucleosome(dragObj, targetElement, targetIndex);
+          _this._placeStickerOnNucleosome(dragObj, targetElement, targetIndex, dropX, dropY);
           _this.placedAcetyls.push({ dragObj, targetIndex });
           _this._animateRelaxation();
           _this._showNotification('Acetylation: Chromatin relaxed!', true);
@@ -338,6 +402,11 @@ class NucleosomeLevel {
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
         const methylRect = dragObj.getBoundingClientRect();
+        // Drop point translated into the level-container coordinate system,
+        // used by the placement helpers below.
+        const containerRect = _this.container.getBoundingClientRect();
+        const dropX = (methylRect.left + methylRect.width / 2) - containerRect.left;
+        const dropY = (methylRect.top + methylRect.height / 2) - containerRect.top;
         let droppedOnTarget = false;
         let targetElement = null;
         let targetIndex = -1;
@@ -365,10 +434,10 @@ class NucleosomeLevel {
         }
         if (droppedOnTarget) {
           if (onDNA) {
-            _this._placeMethylOnDNALink(dragObj, targetElement, targetIndex);
-            _this.placedMethyls.push({ dragObj, type: 'dna', targetIndex });
+            const placement = _this._placeMethylOnDNALink(dragObj, targetElement, targetIndex, dropX, dropY);
+            _this.placedMethyls.push({ dragObj, type: 'dna', targetIndex, s: placement.s });
           } else {
-            _this._placeMethylOnNucleosome(dragObj, targetElement, targetIndex);
+            _this._placeStickerOnNucleosome(dragObj, targetElement, targetIndex, dropX, dropY);
             _this.placedMethyls.push({ dragObj, type: 'nucleosome', targetIndex });
           }
           _this._animateCondensation();
@@ -383,35 +452,88 @@ class NucleosomeLevel {
     });
   }
 
-  /** Place methyl group on DNA link (centered). */
-  _placeMethylOnDNALink(dragObj, dnaLink, linkIdx) {
+  /**
+   * Place methyl group on a DNA link at the exact arc-length position
+   * closest to the drop point, so multiple methyls can sit at different
+   * spots along the same link.
+   */
+  _placeMethylOnDNALink(dragObj, dnaLink, linkIdx, dropContainerX, dropContainerY) {
     dragObj.style.position = 'absolute';
-    // Get DNA link geometry
-    const geom = this._calculateDNALinkGeometry(linkIdx);
-    dragObj.style.left = `${geom.midX}px`;
-    dragObj.style.top = `${geom.midY - geom.dnaLinkThickness / 2 - 18}px`;
-    dragObj.style.transform = 'translate(-50%, -50%)';
+    const pathData = this._samplePathForLink(linkIdx);
+    const idx = this._closestSampleIndex(pathData.samples, dropContainerX, dropContainerY);
+    const s = pathData.samples[idx].s;
+    this._positionMethylAlongDNALink(dragObj, linkIdx, s, pathData);
     this.container.appendChild(dragObj);
     dragObj.dataset.dnaLinkIndex = linkIdx;
     dragObj.dataset.attached = 'true';
+    return { s };
   }
 
-  /** Place methyl group on nucleosome edge. */
-  _placeMethylOnNucleosome(dragObj, nucleosome, nucIdx) {
-    dragObj.style.position = 'absolute';
-    // Find closest edge point (rightmost for simplicity)
-    const nucRect = nucleosome.getBoundingClientRect();
-    const containerRect = this.container.getBoundingClientRect();
-    const centerX = nucRect.left + nucRect.width / 2 - containerRect.left;
-    const centerY = nucRect.top + nucRect.height / 2 - containerRect.top;
-    const radius = nucRect.width / 2;
-    // Place at right edge
-    const edgeX = centerX + radius * 0.95;
-    const edgeY = centerY;
-    dragObj.style.left = `${edgeX}px`;
-    dragObj.style.top = `${edgeY}px`;
+  /**
+   * Re-applies the saved arc-length position of a methyl on a DNA link.
+   * Reused both during initial placement and from _updateAttachedGroups so
+   * the badge tracks the link as it bends/straightens.
+   */
+  _positionMethylAlongDNALink(dragObj, linkIdx, s, pathData) {
+    pathData = pathData || this._samplePathForLink(linkIdx);
+    const p = this._sampleAtArcLength(pathData.samples, s);
+    dragObj.style.left = `${p.x}px`;
+    dragObj.style.top = `${p.y - pathData.geom.dnaLinkThickness / 2 - 18}px`;
     dragObj.style.transform = 'translate(-50%, -50%)';
-    this.container.appendChild(dragObj);
+  }
+
+  /** Read the current rotation (degrees) from a nucleosome's inline transform. */
+  _getNucleosomeRotation(nucleosome) {
+    const t = nucleosome && nucleosome.style ? nucleosome.style.transform : '';
+    const m = t && t.match(/rotate\(([-+]?\d*\.?\d+)deg\)/);
+    return m ? parseFloat(m[1]) : 0;
+  }
+
+  /**
+   * Place a methyl OR acetyl badge anywhere on a nucleosome (wherever the
+   * mouse let go), and parent it to the nucleosome so it inherits the
+   * nucleosome's CSS rotation and translates with it as the chain animates.
+   *
+   * The drop point is "unrotated" by the nucleosome's current rotation so
+   * the badge sticks to the underlying disc rather than to screen-space.
+   */
+  _placeStickerOnNucleosome(dragObj, nucleosome, nucIdx, dropContainerX, dropContainerY) {
+    const nucSize = 77;
+    const radius = nucSize / 2;
+    const nucLeft = parseFloat(nucleosome.style.left) || 0;
+    const nucTop = parseFloat(nucleosome.style.top) || 0;
+    const nucCenterX = nucLeft + radius;
+    const nucCenterY = nucTop + radius;
+
+    // Vector from nucleosome center to drop point (container space).
+    const dx = dropContainerX - nucCenterX;
+    const dy = dropContainerY - nucCenterY;
+
+    // Back out the nucleosome's current rotation so the drop point is
+    // expressed in the nucleosome's local (pre-transform) frame.
+    const rotRad = this._getNucleosomeRotation(nucleosome) * Math.PI / 180;
+    const cos = Math.cos(-rotRad);
+    const sin = Math.sin(-rotRad);
+    let localDx = dx * cos - dy * sin;
+    let localDy = dx * sin + dy * cos;
+
+    // Keep the badge visually pinned to the disc (slightly inside the rim).
+    const dist = Math.hypot(localDx, localDy);
+    const maxDist = radius * 0.85;
+    if (dist > maxDist && dist > 0) {
+      localDx = (localDx / dist) * maxDist;
+      localDy = (localDy / dist) * maxDist;
+    }
+
+    const localX = radius + localDx;
+    const localY = radius + localDy;
+
+    dragObj.style.position = 'absolute';
+    dragObj.style.left = `${localX}px`;
+    dragObj.style.top = `${localY}px`;
+    dragObj.style.transform = 'translate(-50%, -50%)';
+    dragObj.style.zIndex = '5';
+    nucleosome.appendChild(dragObj);
     dragObj.dataset.nucleosomeIndex = nucIdx;
     dragObj.dataset.attached = 'true';
   }
@@ -446,18 +568,56 @@ class NucleosomeLevel {
     }
     animateBack();
   }
+  /**
+   * Smoothly tween this.spacing toward toVal so the DNA structure visibly
+   * tightens/loosens just like the slider being dragged.
+   * Cancels any in-flight tween and resumes from the current visual spacing
+   * so multiple drops chain naturally.
+   */
+  _animateSpacingTransition(toVal, durationMs = 500) {
+    if (this._spacingAnimFrame) {
+      cancelAnimationFrame(this._spacingAnimFrame);
+      this._spacingAnimFrame = null;
+    }
+    const fromVal = this.spacing;
+    if (Math.abs(fromVal - toVal) < 0.05) {
+      this.spacing = toVal;
+      if (this.spacingSliderEl) this.spacingSliderEl.value = String(toVal);
+      this.updateSpacing(this.dragOffsets);
+      return;
+    }
+    const startTime = performance.now();
+    const animate = (now) => {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / durationMs);
+      // ease-out cubic for a smooth, natural feel similar to dragging the slider
+      const eased = 1 - Math.pow(1 - t, 3);
+      this.spacing = fromVal + (toVal - fromVal) * eased;
+      if (this.spacingSliderEl) {
+        this.spacingSliderEl.value = String(this.spacing);
+      }
+      this.updateSpacing(this.dragOffsets);
+      if (t < 1) {
+        this._spacingAnimFrame = requestAnimationFrame(animate);
+      } else {
+        this.spacing = toVal;
+        if (this.spacingSliderEl) this.spacingSliderEl.value = String(toVal);
+        this.updateSpacing(this.dragOffsets);
+        this._spacingAnimFrame = null;
+      }
+    };
+    this._spacingAnimFrame = requestAnimationFrame(animate);
+  }
+
   /** Animate condensation (slider up, DNA tightens) */
   _animateCondensation() {
     // Each methyl group increases tightening
     this.methylCondenseCount++;
-    // Move slider up by a fixed increment (max 10 per group)
-    const slider = this.spacingSliderEl;
-    if (slider) {
-      let newVal = Math.max(this.sliderMin, parseInt(slider.value) - 10);
-      slider.value = newVal;
-      this.spacing = newVal;
-      this.updateSpacing();
-    }
+    // Increment is reduced (~40% less than the previous 10px step) so each
+    // drop produces a more subtle condensation that smoothly tweens.
+    if (this._spacingTarget == null) this._spacingTarget = this.spacing;
+    this._spacingTarget = Math.max(this.sliderMin, this._spacingTarget - 6);
+    this._animateSpacingTransition(this._spacingTarget, 500);
     // Animate slider visually (move up)
     const sliderWrapper = document.querySelector('.slider-wrapper');
     if (sliderWrapper) {
@@ -469,13 +629,9 @@ class NucleosomeLevel {
   /** Animate relaxation (slider down, DNA loosens) */
   _animateRelaxation() {
     this.acetylRelaxCount++;
-    const slider = this.spacingSliderEl;
-    if (slider) {
-      let newVal = Math.min(this.sliderMax, parseInt(slider.value) + 10);
-      slider.value = newVal;
-      this.spacing = newVal;
-      this.updateSpacing();
-    }
+    if (this._spacingTarget == null) this._spacingTarget = this.spacing;
+    this._spacingTarget = Math.min(this.sliderMax, this._spacingTarget + 6);
+    this._animateSpacingTransition(this._spacingTarget, 500);
     const sliderWrapper = document.querySelector('.slider-wrapper');
     if (sliderWrapper) {
       sliderWrapper.classList.add('relax-anim');
@@ -531,11 +687,18 @@ class NucleosomeLevel {
     rnaPolymerases.forEach(el => {
       if (el.parentNode) el.parentNode.removeChild(el);
     });
-    // Reset slider to default
-    if (this.spacingSliderEl) {
-      this.spacingSliderEl.value = this.spacing = 120;
-      this.updateSpacing();
+    // Cancel any in-flight spacing tween so reset is immediate.
+    if (this._spacingAnimFrame) {
+      cancelAnimationFrame(this._spacingAnimFrame);
+      this._spacingAnimFrame = null;
     }
+    // Reset slider to default
+    this.spacing = 120;
+    this._spacingTarget = 120;
+    if (this.spacingSliderEl) {
+      this.spacingSliderEl.value = String(this.spacing);
+    }
+    this.updateSpacing();
     this.methylCondenseCount = 0;
     this.acetylRelaxCount = 0;
     if (!opts.silent) {
@@ -548,45 +711,30 @@ class NucleosomeLevel {
     this._resetPlacedElements({ silent: true });
   }
 
+  /**
+   * Show or hide the spacing slider + snap-back toggle. Used by the tutorial
+   * to expose the slider only for the steps that introduce it, and to remove
+   * it for the later epigenetic-mechanism steps and for levels 1-3.
+   */
+  setSliderVisible(visible) {
+    this.sliderVisible = !!visible;
+    if (this.sliderWrapperEl) {
+      this.sliderWrapperEl.style.display = visible ? '' : 'none';
+    }
+    // Available area inside .level-container changes when the bottom strip
+    // shrinks/grows, so re-run layout to keep the chain centered.
+    requestAnimationFrame(() => this.updateSpacing(this.dragOffsets));
+  }
+
   _updateAttachedGroups() {
-    // Update methyls
+    // DNA-attached methyls re-trace their stored arc-length so they slide
+    // smoothly with the link as it bends or the chain tightens/loosens.
     for (const m of this.placedMethyls) {
       if (m.type === 'dna') {
-        // Re-center on DNA link
-        const geom = this._calculateDNALinkGeometry(m.targetIndex);
-        m.dragObj.style.left = `${geom.midX}px`;
-        m.dragObj.style.top = `${geom.midY - geom.dnaLinkThickness / 2 - 18}px`;
-        m.dragObj.style.transform = 'translate(-50%, -50%)';
-      } else if (m.type === 'nucleosome') {
-        // Re-attach to nucleosome edge
-        const nuc = this.nucleosomes[m.targetIndex];
-        if (!nuc) continue;
-        const nucRect = nuc.getBoundingClientRect();
-        const containerRect = this.container.getBoundingClientRect();
-        const centerX = nucRect.left + nucRect.width / 2 - containerRect.left;
-        const centerY = nucRect.top + nucRect.height / 2 - containerRect.top;
-        const radius = nucRect.width / 2;
-        const edgeX = centerX + radius * 0.95;
-        const edgeY = centerY;
-        m.dragObj.style.left = `${edgeX}px`;
-        m.dragObj.style.top = `${edgeY}px`;
-        m.dragObj.style.transform = 'translate(-50%, -50%)';
+        this._positionMethylAlongDNALink(m.dragObj, m.targetIndex, m.s);
       }
-    }
-    // Update acetyls
-    for (const a of this.placedAcetyls) {
-      const nuc = this.nucleosomes[a.targetIndex];
-      if (!nuc) continue;
-      const nucRect = nuc.getBoundingClientRect();
-      const containerRect = this.container.getBoundingClientRect();
-      const centerX = nucRect.left + nucRect.width / 2 - containerRect.left;
-      const centerY = nucRect.top + nucRect.height / 2 - containerRect.top;
-      const radius = nucRect.width / 2;
-      const edgeX = centerX + radius * 0.95;
-      const edgeY = centerY;
-      a.dragObj.style.left = `${edgeX}px`;
-      a.dragObj.style.top = `${edgeY}px`;
-      a.dragObj.style.transform = 'translate(-50%, -50%)';
+      // Nucleosome-attached methyls/acetyls are DOM children of the
+      // nucleosome and inherit its translation + rotation automatically.
     }
   }
 
@@ -617,19 +765,6 @@ class NucleosomeLevel {
     dragObj.style.alignItems = 'center';
     dragObj.style.cursor = 'grab';
 
-    // Label (overlays/follows shape)
-    const label = document.createElement('div');
-    label.textContent = 'RNA Polymerase';
-    label.style.fontWeight = 'bold';
-    label.style.fontSize = '0.95rem';
-    label.style.textAlign = 'center';
-    label.style.position = 'absolute';
-    label.style.top = '-1.3em';
-    label.style.left = '50%';
-    label.style.transform = 'translateX(-50%)';
-    label.style.pointerEvents = 'none';
-    dragObj.appendChild(label);
-
     // Oblong shape
     const rna = document.createElement('div');
     rna.className = 'rna-polymerase';
@@ -639,11 +774,20 @@ class NucleosomeLevel {
     rna.style.background = 'linear-gradient(90deg, #fef08a 70%, #fde047 100%)';
     rna.style.border = '2.5px solid #eab308';
     rna.style.boxShadow = '0 2px 8px rgba(200,180,60,0.13)';
+    rna.style.position = 'relative';
     rna.style.display = 'flex';
     rna.style.alignItems = 'center';
     rna.style.justifyContent = 'center';
     rna.style.transition = 'box-shadow 0.2s, border 0.2s';
     dragObj.appendChild(rna);
+
+    // Label is overlaid centered on the shape (single line, small font), so
+    // the badge reads as one combined element instead of label-on-top-of-shape.
+    const label = document.createElement('div');
+    label.textContent = 'RNA Polymerase';
+    this._styleToolLabel(label, '#713f12');
+    rna.appendChild(label);
+
     wrapper.appendChild(dragObj);
     toolbar.appendChild(wrapper);
 
@@ -746,16 +890,29 @@ class NucleosomeLevel {
 
       if (droppedOnTarget) {
         const rnaPolymeraseWidth = 80; // From rna.style.width
+        const movementDistance = 2 * rnaPolymeraseWidth;
 
         let proceedWithTranscription = false;
+        let dropInfo = null;
 
         if (targetElement.classList.contains('dna-svg')) { // It's a DNA link
-          const dnaLinkLength = _this.currentLinkLengths[targetIndex];
-          if (dnaLinkLength > 2 * rnaPolymeraseWidth) {
-            console.log(`DNA Link ${targetIndex} length (${dnaLinkLength.toFixed(2)}px) is sufficient (>${(2 * rnaPolymeraseWidth)}px) for transcription.`);
+          // Project the polymerase center onto the link's path and check
+          // that the *remaining* path (from drop point to the far end) is
+          // long enough to actually transcribe — this lets the player drop
+          // mid-link rather than only at the start.
+          const containerRect = _this.container.getBoundingClientRect();
+          const dropPx = (rnaPolymeraseRect.left + rnaPolymeraseRect.width / 2) - containerRect.left;
+          const dropPy = (rnaPolymeraseRect.top + rnaPolymeraseRect.height / 2) - containerRect.top;
+          const pathData = _this._samplePathForLink(targetIndex);
+          const startIdx = _this._closestSampleIndex(pathData.samples, dropPx, dropPy);
+          const startSample = pathData.samples[startIdx];
+          const remainingLength = pathData.totalLength - startSample.s;
+          if (remainingLength > movementDistance) {
+            console.log(`DNA Link ${targetIndex}: remaining path ${remainingLength.toFixed(2)}px from drop point is sufficient (>${movementDistance}px).`);
             proceedWithTranscription = true;
+            dropInfo = { startS: startSample.s, totalLength: pathData.totalLength, samples: pathData.samples };
           } else {
-            console.log(`DNA Link ${targetIndex} length (${dnaLinkLength.toFixed(2)}px) is too short (not >${(2 * rnaPolymeraseWidth)}px) for transcription. Returning to toolbar.`);
+            console.log(`DNA Link ${targetIndex}: remaining path ${remainingLength.toFixed(2)}px from drop point is too short (need >${movementDistance}px).`);
           }
         } else { // It's a nucleosome
           console.log(`RNA Polymerase dropped on Nucleosome ${targetIndex}. Proceeding with transcription.`);
@@ -763,29 +920,22 @@ class NucleosomeLevel {
         }
 
         if (proceedWithTranscription) {
-          // For now, just log and prevent snap-back.
-          // The transcription animation logic will go here.
           console.log("RNA Polymerase successfully dropped on a target. Initiating transcription sequence.");
-          // We will add the transcription animation here later.
-          // For now, reset zIndex and style.
-          dragObj.style.zIndex = '100'; // Bring RNA polymerase to front
+          dragObj.style.zIndex = '100';
           rna.style.boxShadow = '0 2px 8px rgba(200,180,60,0.13)';
           rna.style.borderColor = '#eab308';
 
-          // Move dragObj to the main container to ensure z-index works correctly
           _this.rnaPolymeraseToolbar.querySelector('.rna-polymerase-wrapper').removeChild(dragObj);
           _this.container.appendChild(dragObj);
 
-          _this._placeRNAPolymeraseOnTarget(dragObj, rnaPolymeraseRect, targetElement, targetIndex);
+          _this._placeRNAPolymeraseOnTarget(dragObj, rnaPolymeraseRect, targetElement, targetIndex, dropInfo);
           _this._animateTranscription(dragObj);
           _this._showNotification("Transcription Successful!", true);
         } else {
-          // Animate back to toolbar if condition not met for DNA link
           _this._returnRnaPolymeraseToToolbar(dragObj);
           _this._showNotification("Transcription Unsuccessful. DNA link too short.", false);
         }
       } else {
-        // Animate back to toolbar
         _this._returnRnaPolymeraseToToolbar(dragObj);
         _this._showNotification("Transcription Unsuccessful. No valid target.", false);
       }
@@ -913,9 +1063,20 @@ class NucleosomeLevel {
 
     const levelControlsHost = document.querySelector('.level-bottom-controls') || this.container;
     levelControlsHost.appendChild(sliderWrapper);
+    this.sliderWrapperEl = sliderWrapper;
+    if (!this.sliderVisible) {
+      sliderWrapper.style.display = 'none';
+    }
 
     slider.addEventListener('input', (e) => {
       this.spacing = parseInt(e.target.value);
+      // Keep the drop-target spacing synced with manual slider use, so a later
+      // methyl/acetyl drop steps from the user's chosen value (not a stale one).
+      this._spacingTarget = this.spacing;
+      if (this._spacingAnimFrame) {
+        cancelAnimationFrame(this._spacingAnimFrame);
+        this._spacingAnimFrame = null;
+      }
       this.updateSpacing();
     });
 
@@ -983,10 +1144,18 @@ class NucleosomeLevel {
 
     // Interpolate amplitude
     const amplitude = minVerticalAmplitude + (maxVerticalAmplitude - minVerticalAmplitude) * normalizedSpacing;
-    const baseY = (containerRect.height || 220) / 2;
+    // Center the chain vertically by accounting for the nucleosome's own
+    // height (baseY is the top-left y of each nucleosome, not its center)
+    // and bias slightly upward so the zig-zag never crosses into the
+    // .level-bottom-controls strip below.
+    const extraUpShift = 12;
+    const baseY = ((containerRect.height || 220) / 2) - nucRadius - extraUpShift;
 
     const totalWidth = (this.nucleosomeCount - 1) * this.spacing;
-    const centerX = (containerRect.width || 900) / 2;
+    // Slight leftward bias keeps the rightmost nucleosome (and any acetyl/
+    // methyl pinned to its right edge) clear of the level-container border.
+    const extraLeftShift = 18;
+    const centerX = ((containerRect.width || 900) / 2) - extraLeftShift;
     let x0 = centerX - totalWidth / 2;
     this.currentLinkLengths = new Array(Math.max(0, this.nucleosomeCount - 1)).fill(0);
     const restLinkLengths = new Array(Math.max(0, this.nucleosomeCount - 1)).fill(0);
@@ -1345,6 +1514,89 @@ class NucleosomeLevel {
     return total;
   }
 
+  /**
+   * Sample a DNA link path into points with running arc-length.
+   * Returned coordinates are in container-local space (matching nucleosome
+   * absolute positions). Used to:
+   *   • find the drop point along the link for the RNA polymerase
+   *   • walk a fixed arc-length distance during the transcription animation
+   */
+  _samplePathForLink(linkIndex, numSamples = 80) {
+    const geom = this._calculateDNALinkGeometry(linkIndex);
+    const { x1, y1, x2, y2, isBent, c1absX, c1absY, c2absX, c2absY } = geom;
+    const samples = new Array(numSamples + 1);
+    let prevX = x1;
+    let prevY = y1;
+    let s = 0;
+    samples[0] = { t: 0, x: x1, y: y1, s: 0 };
+    for (let i = 1; i <= numSamples; i++) {
+      const t = i / numSamples;
+      let px;
+      let py;
+      if (isBent) {
+        px = this.cubicPoint(t, x1, c1absX, c2absX, x2);
+        py = this.cubicPoint(t, y1, c1absY, c2absY, y2);
+      } else {
+        px = x1 + (x2 - x1) * t;
+        py = y1 + (y2 - y1) * t;
+      }
+      s += this.distance(prevX, prevY, px, py);
+      samples[i] = { t, x: px, y: py, s };
+      prevX = px;
+      prevY = py;
+    }
+    return { samples, totalLength: s, geom };
+  }
+
+  /** Find the sample index closest to (px, py). */
+  _closestSampleIndex(samples, px, py) {
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < samples.length; i++) {
+      const dx = samples[i].x - px;
+      const dy = samples[i].y - py;
+      const d = dx * dx + dy * dy;
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }
+
+  /**
+   * Interpolate a position + tangent angle along the sampled path at arc
+   * length s (clamped to [0, totalLength]).
+   */
+  _sampleAtArcLength(samples, s) {
+    const last = samples[samples.length - 1];
+    if (s <= 0) {
+      const a = samples[0];
+      const b = samples[1] || a;
+      return { x: a.x, y: a.y, angleDeg: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI };
+    }
+    if (s >= last.s) {
+      const b = last;
+      const a = samples[samples.length - 2] || last;
+      return { x: b.x, y: b.y, angleDeg: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI };
+    }
+    let lo = 0;
+    let hi = samples.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (samples[mid].s < s) lo = mid + 1; else hi = mid;
+    }
+    const idx = Math.max(1, lo);
+    const a = samples[idx - 1];
+    const b = samples[idx];
+    const span = (b.s - a.s) || 1e-9;
+    const u = (s - a.s) / span;
+    const x = a.x + (b.x - a.x) * u;
+    const y = a.y + (b.y - a.y) * u;
+    const angleDeg = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+    return { x, y, angleDeg };
+  }
+
   // Helper to calculate DNA link geometry (endpoints, midpoint, angle)
   _calculateDNALinkGeometry(linkIndex) {
     const nucRadius = 38.5; // Nucleosome radius
@@ -1449,7 +1701,7 @@ class NucleosomeLevel {
   }
 
   // Handles placement and rotation of RNA Polymerase onto the target
-  _placeRNAPolymeraseOnTarget(dragObj, rnaPolymeraseRect, targetElement, targetIndex) {
+  _placeRNAPolymeraseOnTarget(dragObj, rnaPolymeraseRect, targetElement, targetIndex, dropInfo) {
     dragObj.style.position = 'absolute';
 
     // Assume rnaPolymeraseRect has been calculated from the original dragObj
@@ -1460,24 +1712,25 @@ class NucleosomeLevel {
     let targetX, targetY, targetAngleDeg;
 
     if (targetElement.classList.contains('dna-svg')) {
-      // Dropped on a DNA link
-      const { midX, midY, angleDeg, dnaLinkThickness } = this._calculateDNALinkGeometry(targetIndex);
-      targetX = midX;
-      targetY = midY;
-      targetAngleDeg = angleDeg; // Rotate to make its longer side parallel to the DNA link
-
-      // Adjust targetY to place RNA polymerase visually "on top" of the DNA link
-      targetY = midY - (rnaPolymeraseHeight / 2) - (dnaLinkThickness / 2);
+      // Dropped on a DNA link. Use the projected drop point along the path
+      // so the polymerase appears where the user actually let go, not at the
+      // link's midpoint.
+      const { dnaLinkThickness } = this._calculateDNALinkGeometry(targetIndex);
+      const samples = dropInfo && dropInfo.samples ? dropInfo.samples : this._samplePathForLink(targetIndex).samples;
+      const startS = (dropInfo && typeof dropInfo.startS === 'number') ? dropInfo.startS : 0;
+      const startPoint = this._sampleAtArcLength(samples, startS);
+      targetX = startPoint.x;
+      targetY = startPoint.y - (rnaPolymeraseHeight / 2) - (dnaLinkThickness / 2);
+      targetAngleDeg = startPoint.angleDeg;
 
       // Store target data in dataset for later use by transcription animation
       dragObj.dataset.targetType = 'dnaLink';
       dragObj.dataset.targetIndex = targetIndex;
-      dragObj.dataset.dnaMidX = midX;
-      dragObj.dataset.dnaMidY = midY;
-      dragObj.dataset.dnaAngleDeg = angleDeg;
+      dragObj.dataset.startS = String(startS);
+      dragObj.dataset.totalLength = String(dropInfo ? dropInfo.totalLength : 0);
       dragObj.dataset.dnaLinkThickness = dnaLinkThickness;
 
-      console.log(`RNA Polymerase placed on DNA link ${targetIndex} at (${targetX.toFixed(2)}, ${targetY.toFixed(2)}) with angle ${targetAngleDeg.toFixed(2)}. DNA Link Thickness: ${dnaLinkThickness}. Polymerase Height: ${rnaPolymeraseHeight}`);
+      console.log(`RNA Polymerase placed on DNA link ${targetIndex} at (${targetX.toFixed(2)}, ${targetY.toFixed(2)}) with angle ${targetAngleDeg.toFixed(2)}. Drop arc-length: ${startS.toFixed(2)}px. DNA Link Thickness: ${dnaLinkThickness}. Polymerase Height: ${rnaPolymeraseHeight}`);
     } else {
       // Dropped on a nucleosome
       const nucleosomeRect = targetElement.getBoundingClientRect();
@@ -1515,78 +1768,41 @@ class NucleosomeLevel {
     const rnaPolymeraseWidth = parseFloat(rnaElement.style.width); // 80px
     const rnaPolymeraseHeight = parseFloat(rnaElement.style.height); // 36px
 
-    let startX = parseFloat(dragObj.style.left);
-    let startY = parseFloat(dragObj.style.top);
-    // Extract current rotation angle from transform property
-    const currentTransform = dragObj.style.transform;
-    const rotateMatch = currentTransform.match(/rotate\(([-+]?\d*\.?\d+)(deg|rad)\)/);
-    let startAngleDeg = rotateMatch ? parseFloat(rotateMatch[1]) : 0;
-
-    // Define movement distance as RNA polymerase width
+    // Movement distance the polymerase needs to traverse along the DNA path.
     const movementDistance = rnaPolymeraseWidth * 2;
 
     if (targetType === 'dnaLink') {
-      const { x1, y1, x2, y2, dnaLinkThickness, isBent, c1absX, c1absY, c2absX, c2absY } = _this._calculateDNALinkGeometry(targetIndex);
+      // Snapshot the path at the start so we walk a stable curve even if
+      // the DNA reshapes (e.g. another methyl drops) mid-transcription.
+      const pathData = _this._samplePathForLink(targetIndex);
+      const samples = pathData.samples;
+      const totalLength = pathData.totalLength;
+      const dnaLinkThickness = pathData.geom.dnaLinkThickness;
+      const startS = parseFloat(dragObj.dataset.startS || '0');
+      const endS = Math.min(totalLength, startS + movementDistance);
+      const span = endS - startS;
+      const pxPerSecond = 80; // steady, readable transcription speed
+      const durationMs = Math.max(150, (span / pxPerSecond) * 1000);
+      let elapsed = 0;
+      let prevTs = null;
 
-      // For movement along the DNA link, we need to find points along its path.
-      // The instruction "move 'down' the DNA link (which would just be to the right, or counter clockwise)"
-      // implies moving from the start of the link towards the end.
-
-      let pathProgress = 0; // 0 to 1, representing progress along the DNA link's length
-      const totalLinkLength = _this.currentLinkLengths[targetIndex];
-      const segmentProgress = movementDistance / totalLinkLength; // How much of the path to cover
-
-      function animateMovement(timestamp) {
-        if (!previousTimestamp) previousTimestamp = timestamp;
-        const deltaTime = timestamp - previousTimestamp;
-        previousTimestamp = timestamp;
-
-        pathProgress += (deltaTime / 1000) * (1 / 2); // Adjust speed as needed, 1 unit per second
-
-        if (pathProgress >= segmentProgress) {
-          pathProgress = segmentProgress; // Ensure it doesn't overshoot
-          // Movement complete, proceed to next animation step
-          console.log("RNA Polymerase movement along DNA link complete.");
-          _this._returnRnaPolymeraseToToolbar(dragObj); // Return to toolbar after movement
-          return;
-        }
-
-        let newX, newY, newAngleDeg;
-
-        if (isBent) {
-          // Calculate point on cubic Bezier curve using pre-calculated control points
-          newX = _this.cubicPoint(pathProgress, x1, c1absX, c2absX, x2);
-          newY = _this.cubicPoint(pathProgress, y1, c1absY, c2absY, y2);
-
-          // Calculate tangent angle for rotation along the curve
-          // Derivative of Bezier at t gives tangent vector
-          const tangentDx = 3 * Math.pow((1 - pathProgress), 2) * (c1absX - x1) +
-                            6 * (1 - pathProgress) * pathProgress * (c2absX - c1absX) +
-                            3 * Math.pow(pathProgress, 2) * (x2 - c2absX);
-          const tangentDy = 3 * Math.pow((1 - pathProgress), 2) * (c1absY - y1) +
-                            6 * (1 - pathProgress) * pathProgress * (c2absY - c1absY) +
-                            3 * Math.pow(pathProgress, 2) * (y2 - c2absY);
-          newAngleDeg = Math.atan2(tangentDy, tangentDx) * 180 / Math.PI;
-
+      function animateMovement(ts) {
+        if (prevTs == null) prevTs = ts;
+        elapsed += ts - prevTs;
+        prevTs = ts;
+        const t = Math.min(1, elapsed / durationMs);
+        const s = startS + span * t;
+        const p = _this._sampleAtArcLength(samples, s);
+        dragObj.style.left = `${p.x}px`;
+        dragObj.style.top = `${p.y - (rnaPolymeraseHeight / 2) - (dnaLinkThickness / 2)}px`;
+        dragObj.style.transform = `translate(-50%, -50%) rotate(${p.angleDeg}deg)`;
+        if (t < 1) {
+          requestAnimationFrame(animateMovement);
         } else {
-          // Calculate point on a straight line
-          newX = x1 + (x2 - x1) * pathProgress;
-          newY = y1 + (y2 - y1) * pathProgress;
-          newAngleDeg = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI; // Dynamic angle for straight link
+          console.log("RNA Polymerase movement along DNA link complete.");
+          _this._returnRnaPolymeraseToToolbar(dragObj);
         }
-
-        // Adjust for positioning "on top" and centering
-        const adjustedX = newX;
-        const adjustedY = newY - (rnaPolymeraseHeight / 2) - (dnaLinkThickness / 2);
-
-        dragObj.style.left = `${adjustedX}px`;
-        dragObj.style.top = `${adjustedY}px`;
-        dragObj.style.transform = `translate(-50%, -50%) rotate(${newAngleDeg}deg)`;
-
-        requestAnimationFrame(animateMovement);
       }
-
-      let previousTimestamp;
       requestAnimationFrame(animateMovement);
 
     } else { // targetType === 'nucleosome'
